@@ -14,6 +14,7 @@ import { MongoRepository } from '../database/mongodb/repository.js';
 import { RedisStore } from '../database/redis/redisStore.js';
 import { Player } from '../game/entities/player.js';
 import { logger } from '../utils/logger.js';
+import { getKey } from '../utils/math.js';
 
 /**
  * Main Game Server
@@ -108,6 +109,9 @@ export class GameServer {
 
   async handleLogin(client, packet) {
     const result = await this.authService.handleLogin(client, packet);
+    if (result && result.created) {
+      return;
+    }
     if (result) {
       this.spawnPlayer(client, result.playerId, result.name, false);
     }
@@ -116,14 +120,14 @@ export class GameServer {
   async handleGuestLogin(client, packet) {
     const result = await this.authService.handleGuestLogin(client);
     if (result) {
-      this.spawnPlayer(client, result.playerId, result.name, true);
+      this.spawnPlayer(client, result.playerId, result.name, true, result.guestPass);
     }
   }
 
   /**
    * Spawn a player into the game world.
    */
-  spawnPlayer(client, playerId, name, isGuest) {
+  spawnPlayer(client, playerId, name, isGuest, guestPass = null) {
     const player = new Player(playerId, name);
     player.sessionId = client.sessionId;
     player.isGuest = isGuest;
@@ -145,6 +149,9 @@ export class GameServer {
     // Send player template
     this.network.sendToPlayer(playerId, player.toTemplatePacket());
 
+    // Send initial spawn packet
+    this.network.sendToPlayer(playerId, player.toSpawnPacket());
+
     // Send map data
     this.sendMapData(player);
 
@@ -161,13 +168,19 @@ export class GameServer {
     });
 
     // Send accepted with map info
-    this.network.sendToPlayer(playerId, {
+    const acceptedPacket = {
       type: 'accepted',
+      id: playerId,
       mw: map.width,
       mh: map.height,
       tile: map.tileSpeed,
       name: name,
-    });
+    };
+    if (isGuest) {
+      acceptedPacket.guest = true;
+      acceptedPacket.pass = guestPass;
+    }
+    this.network.sendToPlayer(playerId, acceptedPacket);
 
     // Broadcast new player to others
     this.broadcastPlayerUpdate(player);
@@ -212,10 +225,30 @@ export class GameServer {
     const map = this.mapLoader.getMap(player.mapId);
     if (!map) return;
 
+    const updateX = 18;
+    const updateY = 13;
+    const tiles = [];
+
+    for (let dx = -updateX; dx < updateX; dx++) {
+      for (let dy = -updateY; dy < updateY; dy++) {
+        const x = player.x + dx;
+        const y = player.y + dy;
+        const tileId = map.getTile(x, y);
+        const key = getKey(x, y);
+        const objects = map.objects.get(key);
+        if (objects && objects.length) {
+          tiles.push([tileId ?? 0, ...objects].join('_'));
+        } else {
+          tiles.push(String(tileId ?? 0));
+        }
+      }
+    }
+
     this.network.sendToPlayer(player.id, {
       type: 'map',
       x: player.x,
       y: player.y,
+      tiles: tiles.join(':'),
     });
   }
 

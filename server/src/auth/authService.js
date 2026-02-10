@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 
@@ -9,6 +10,7 @@ export class AuthService {
   constructor(gameServer) {
     this.gameServer = gameServer;
     this.guestCounter = 0;
+    this.localAccounts = new Map();
   }
 
   /**
@@ -18,37 +20,81 @@ export class AuthService {
   async handleLogin(client, packet) {
     // Extract credentials
     let username, password;
+    let email;
 
     if (packet.user && packet.pass) {
-      username = Buffer.from(packet.user, 'base64').toString();
-      password = Buffer.from(packet.pass, 'base64').toString();
+      username = this.decodeBase64(packet.user);
+      password = this.decodeBase64(packet.pass);
+      if (packet.email !== undefined) {
+        email = this.decodeBase64(packet.email);
+      }
     } else if (packet.data) {
       // /me auto-login or other formats
       username = packet.data;
     }
 
+    const isRegistration = email !== undefined;
     if (!username) {
-      this.gameServer.network.sendTo(client.sessionId, {
-        type: 'logmsg',
-        text: 'Invalid login credentials.',
-      });
+      this.sendAuthMessage(client, isRegistration, 'Invalid login credentials.');
       return null;
     }
 
-    // TODO: Validate against database
-    // For now, accept any login
-    logger.info(`Login attempt: ${username}`);
+    const normalizedUsername = username.trim();
+    const normalizedPassword = password ? password.trim() : '';
+    const normalizedEmail = email ? email.trim() : '';
+    if (!normalizedUsername) {
+      this.sendAuthMessage(client, isRegistration, 'Invalid login credentials.');
+      return null;
+    }
+
+    if (isRegistration && !normalizedPassword) {
+      this.sendAuthMessage(client, true, 'Password is required.');
+      return null;
+    }
+
+    const account = await this.findAccount(normalizedUsername);
+    if (isRegistration) {
+      if (account) {
+        this.sendAuthMessage(client, true, 'Account already exists.');
+        return null;
+      }
+
+      await this.createAccount({
+        username: normalizedUsername,
+        passwordHash: this.createPasswordHash(normalizedPassword),
+        email: normalizedEmail,
+      });
+      this.gameServer.network.sendTo(client.sessionId, {
+        type: 'accepted',
+        created: true,
+      });
+      logger.info(`Account created: ${normalizedUsername}`);
+      return { created: true };
+    }
+
+    if (!account && normalizedPassword) {
+      this.sendAuthMessage(client, false, 'Account not found. Please register.');
+      return null;
+    }
+
+    if (account && account.passwordHash && !normalizedPassword) {
+      this.sendAuthMessage(client, false, 'Password is required.');
+      return null;
+    }
+
+    if (account && account.passwordHash &&
+        !this.verifyPassword(normalizedPassword, account.passwordHash)) {
+      this.sendAuthMessage(client, false, 'Invalid login credentials.');
+      return null;
+    }
+
+    logger.info(`Login attempt: ${normalizedUsername}`);
 
     const playerId = uuidv4();
     client.authenticated = true;
     client.playerId = playerId;
 
-    // Send accepted response (matches client protocol)
-    this.gameServer.network.sendTo(client.sessionId, {
-      type: 'accepted',
-    });
-
-    return { playerId, name: username };
+    return { playerId, name: normalizedUsername };
   }
 
   /**
@@ -58,17 +104,66 @@ export class AuthService {
     this.guestCounter++;
     const guestName = `guest-${this.guestCounter}`;
     const playerId = uuidv4();
+    const guestPass = uuidv4().substring(0, 8);
 
     client.authenticated = true;
     client.playerId = playerId;
 
-    this.gameServer.network.sendTo(client.sessionId, {
-      type: 'accepted',
-      guest: true,
+    return {
+      playerId,
       name: guestName,
-      pass: uuidv4().substring(0, 8),
-    });
+      isGuest: true,
+      guestPass,
+    };
+  }
 
-    return { playerId, name: guestName, isGuest: true };
+  decodeBase64(value) {
+    if (typeof value !== 'string') return '';
+    return Buffer.from(value, 'base64').toString();
+  }
+
+  createPasswordHash(password) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto
+      .createHmac('sha256', salt)
+      .update(password)
+      .digest('hex');
+    return `${salt}:${hash}`;
+  }
+
+  verifyPassword(password, storedHash) {
+    const [salt, hash] = storedHash.split(':');
+    if (!salt || !hash) return false;
+    const verifyHash = crypto
+      .createHmac('sha256', salt)
+      .update(password)
+      .digest('hex');
+    return verifyHash === hash;
+  }
+
+  async findAccount(username) {
+    if (this.gameServer.mongo.db) {
+      return this.gameServer.mongo.findAccount(username);
+    }
+    return this.localAccounts.get(username) || null;
+  }
+
+  async createAccount(accountData) {
+    if (this.gameServer.mongo.db) {
+      return this.gameServer.mongo.createAccount(accountData);
+    }
+    this.localAccounts.set(accountData.username, {
+      ...accountData,
+      createdAt: new Date(),
+      lastLogin: new Date(),
+    });
+    return accountData.username;
+  }
+
+  sendAuthMessage(client, isRegistration, text) {
+    this.gameServer.network.sendTo(client.sessionId, {
+      type: isRegistration ? 'crtmsg' : 'logmsg',
+      text,
+    });
   }
 }

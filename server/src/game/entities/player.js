@@ -113,6 +113,13 @@ export class Player {
       n: this.name,
       t: this.tribe,
       l: this.level,
+      s: this.sprite,
+      b: this.body,
+      h: this.hair,
+      c: this.clothes,
+      cc: this.clothesColor,
+      hc: this.hairColor,
+      ec: this.eyeColor,
       pr: this.premium,
     };
   }
