@@ -16,7 +16,7 @@ import { Player } from '../game/entities/player.js';
 import { logger } from '../utils/logger.js';
 import { getKey } from '../utils/math.js';
 
-// Matches client update_x/update_y for map packet viewport size.
+// Matches client update_x/update_y for map packet viewport size (exclusive upper bound).
 const MAP_VIEWPORT_HALF_WIDTH = 18;
 const MAP_VIEWPORT_HALF_HEIGHT = 13;
 

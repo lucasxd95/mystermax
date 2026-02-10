@@ -123,12 +123,16 @@ export class AuthService {
   }
 
   createPasswordHash(password) {
+    // 16-byte salt and 64-byte derived key align with common scrypt recommendations.
     const salt = crypto.randomBytes(16);
     const hash = crypto.scryptSync(password, salt, 64);
     return `${salt.toString('hex')}:${hash.toString('hex')}`;
   }
 
   verifyPassword(password, storedHash) {
+    if (typeof storedHash !== 'string' || storedHash.length === 0) {
+      return false;
+    }
     const [saltHex, hashHex] = storedHash.split(':');
     if (!saltHex || !hashHex) return false;
     try {
