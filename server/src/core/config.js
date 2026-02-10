@@ -1,11 +1,18 @@
 import { config as dotenvConfig } from 'dotenv';
 dotenvConfig();
 
+const sslEnabled = ['true', '1'].includes((process.env.SSL_ENABLED || '').toLowerCase());
+
 const config = {
   server: {
     port: parseInt(process.env.PORT, 10) || 8080,
     tickRate: parseInt(process.env.TICK_RATE, 10) || 20,
     env: process.env.NODE_ENV || 'development',
+    ssl: {
+      enabled: sslEnabled,
+      certPath: process.env.SSL_CERT_PATH || null,
+      keyPath: process.env.SSL_KEY_PATH || null,
+    },
   },
   mongodb: {
     uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/mystermax',

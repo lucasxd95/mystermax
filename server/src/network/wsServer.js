@@ -1,3 +1,5 @@
+import fs from 'fs';
+import https from 'https';
 import { WebSocketServer } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import config from '../core/config.js';
@@ -14,6 +16,7 @@ export class NetworkServer {
   constructor(gameServer) {
     this.gameServer = gameServer;
     this.wss = null;
+    this.httpServer = null;
     this.clients = new Map(); // sessionId -> { ws, sessionId, playerId, lastActivity }
     this.packetRouter = new PacketRouter(gameServer);
     this.packetValidator = new PacketValidator();
@@ -21,7 +24,47 @@ export class NetworkServer {
   }
 
   start(port) {
-    this.wss = new WebSocketServer({ port });
+    const sslConfig = config.server.ssl;
+    if (sslConfig.enabled) {
+      const { certPath, keyPath } = sslConfig;
+      if (!certPath || !keyPath) {
+        throw new Error('SSL is enabled but SSL_CERT_PATH or SSL_KEY_PATH is missing.');
+      }
+      const missingPaths = [];
+      if (!fs.existsSync(certPath)) {
+        missingPaths.push(`SSL_CERT_PATH (${certPath})`);
+      }
+      if (!fs.existsSync(keyPath)) {
+        missingPaths.push(`SSL_KEY_PATH (${keyPath})`);
+      }
+      if (missingPaths.length > 0) {
+        throw new Error(`SSL certificate files not found: ${missingPaths.join(', ')}.`);
+      }
+
+      let cert;
+      let key;
+      try {
+        cert = fs.readFileSync(certPath);
+        key = fs.readFileSync(keyPath);
+      } catch (err) {
+        throw new Error(`Failed to read SSL certificate files: ${err.message}`);
+      }
+      try {
+        this.httpServer = https.createServer({ cert, key });
+      } catch (err) {
+        throw new Error(`Failed to create HTTPS server: ${err.message}`);
+      }
+      this.httpServer.on('error', (err) => {
+        logger.error(
+          'HTTPS server error (verify SSL_CERT_PATH/SSL_KEY_PATH files and permissions):',
+          err
+        );
+      });
+      this.wss = new WebSocketServer({ server: this.httpServer });
+      this.httpServer.listen(port);
+    } else {
+      this.wss = new WebSocketServer({ port });
+    }
 
     this.wss.on('connection', (ws) => {
       this.handleConnection(ws);
@@ -31,7 +74,8 @@ export class NetworkServer {
       logger.error('WebSocket server error:', err);
     });
 
-    logger.info(`WebSocket server listening on port ${port}`);
+    const protocolLabel = sslConfig.enabled ? 'Secure WebSocket' : 'WebSocket';
+    logger.info(`${protocolLabel} server listening on port ${port}`);
   }
 
   handleConnection(ws) {
@@ -167,10 +211,42 @@ export class NetworkServer {
     return null;
   }
 
-  stop() {
+  async stop() {
+    const closeOperations = [];
+
     if (this.wss) {
-      this.wss.close();
-      logger.info('WebSocket server stopped');
+      closeOperations.push(
+        new Promise((resolve) => {
+          this.wss.close(() => {
+            logger.info('WebSocket server stopped');
+            this.wss = null;
+            resolve();
+          });
+        })
+      );
+    }
+
+    if (this.httpServer) {
+      closeOperations.push(
+        new Promise((resolve, reject) => {
+          this.httpServer.close((err) => {
+            if (err) {
+              logger.error('HTTPS server shutdown error:', err);
+              reject(err);
+              return;
+            }
+            logger.info('HTTPS server stopped');
+            this.httpServer = null;
+            resolve();
+          });
+        })
+      );
+    }
+
+    try {
+      await Promise.all(closeOperations);
+    } catch (err) {
+      logger.error('Network shutdown encountered errors:', err);
     }
   }
 }
