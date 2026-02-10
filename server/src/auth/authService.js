@@ -123,22 +123,22 @@ export class AuthService {
   }
 
   createPasswordHash(password) {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto
-      .createHmac('sha256', salt)
-      .update(password)
-      .digest('hex');
-    return `${salt}:${hash}`;
+    const salt = crypto.randomBytes(16);
+    const hash = crypto.scryptSync(password, salt, 64);
+    return `${salt.toString('hex')}:${hash.toString('hex')}`;
   }
 
   verifyPassword(password, storedHash) {
-    const [salt, hash] = storedHash.split(':');
-    if (!salt || !hash) return false;
-    const verifyHash = crypto
-      .createHmac('sha256', salt)
-      .update(password)
-      .digest('hex');
-    return verifyHash === hash;
+    const [saltHex, hashHex] = storedHash.split(':');
+    if (!saltHex || !hashHex) return false;
+    try {
+      const salt = Buffer.from(saltHex, 'hex');
+      const storedBuffer = Buffer.from(hashHex, 'hex');
+      const verifyBuffer = crypto.scryptSync(password, salt, storedBuffer.length);
+      return crypto.timingSafeEqual(storedBuffer, verifyBuffer);
+    } catch {
+      return false;
+    }
   }
 
   async findAccount(username) {

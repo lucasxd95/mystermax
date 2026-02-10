@@ -16,6 +16,10 @@ import { Player } from '../game/entities/player.js';
 import { logger } from '../utils/logger.js';
 import { getKey } from '../utils/math.js';
 
+// Matches client update_x/update_y for map packet viewport size.
+const MAP_VIEWPORT_HALF_WIDTH = 18;
+const MAP_VIEWPORT_HALF_HEIGHT = 13;
+
 /**
  * Main Game Server
  *
@@ -225,12 +229,10 @@ export class GameServer {
     const map = this.mapLoader.getMap(player.mapId);
     if (!map) return;
 
-    const updateX = 18;
-    const updateY = 13;
     const tiles = [];
 
-    for (let dx = -updateX; dx < updateX; dx++) {
-      for (let dy = -updateY; dy < updateY; dy++) {
+    for (let dx = -MAP_VIEWPORT_HALF_WIDTH; dx < MAP_VIEWPORT_HALF_WIDTH; dx++) {
+      for (let dy = -MAP_VIEWPORT_HALF_HEIGHT; dy < MAP_VIEWPORT_HALF_HEIGHT; dy++) {
         const x = player.x + dx;
         const y = player.y + dy;
         const tileId = map.getTile(x, y);
