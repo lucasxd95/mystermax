@@ -1,3 +1,5 @@
+import fs from 'fs';
+import https from 'https';
 import { WebSocketServer } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import config from '../core/config.js';
@@ -14,6 +16,7 @@ export class NetworkServer {
   constructor(gameServer) {
     this.gameServer = gameServer;
     this.wss = null;
+    this.httpServer = null;
     this.clients = new Map(); // sessionId -> { ws, sessionId, playerId, lastActivity }
     this.packetRouter = new PacketRouter(gameServer);
     this.packetValidator = new PacketValidator();
@@ -21,7 +24,29 @@ export class NetworkServer {
   }
 
   start(port) {
-    this.wss = new WebSocketServer({ port });
+    const sslConfig = config.server.ssl;
+    if (sslConfig?.enabled) {
+      const { certPath, keyPath } = sslConfig;
+      if (!certPath || !keyPath) {
+        throw new Error('SSL is enabled but certificate paths are missing.');
+      }
+      if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+        throw new Error(`SSL certificate files not found at ${certPath} or ${keyPath}.`);
+      }
+
+      this.httpServer = https.createServer({
+        cert: fs.readFileSync(certPath),
+        key: fs.readFileSync(keyPath),
+      });
+      this.wss = new WebSocketServer({ server: this.httpServer });
+      this.httpServer.on('error', (err) => {
+        logger.error('HTTPS server error:', err);
+      });
+      this.httpServer.listen(port);
+    } else {
+      this.wss = new WebSocketServer({ port });
+      this.httpServer = null;
+    }
 
     this.wss.on('connection', (ws) => {
       this.handleConnection(ws);
@@ -31,7 +56,8 @@ export class NetworkServer {
       logger.error('WebSocket server error:', err);
     });
 
-    logger.info(`WebSocket server listening on port ${port}`);
+    const protocolLabel = sslConfig?.enabled ? 'Secure WebSocket' : 'WebSocket';
+    logger.info(`${protocolLabel} server listening on port ${port}`);
   }
 
   handleConnection(ws) {
@@ -171,6 +197,10 @@ export class NetworkServer {
     if (this.wss) {
       this.wss.close();
       logger.info('WebSocket server stopped');
+    }
+    if (this.httpServer) {
+      this.httpServer.close();
+      this.httpServer = null;
     }
   }
 }
