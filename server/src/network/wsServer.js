@@ -202,20 +202,37 @@ export class NetworkServer {
     return null;
   }
 
-  stop() {
+  async stop() {
+    const closeOperations = [];
+
     if (this.wss) {
-      this.wss.close();
-      logger.info('WebSocket server stopped');
+      closeOperations.push(
+        new Promise((resolve) => {
+          this.wss.close(() => {
+            logger.info('WebSocket server stopped');
+            this.wss = null;
+            resolve();
+          });
+        })
+      );
     }
+
     if (this.httpServer) {
-      this.httpServer.close((err) => {
-        if (err) {
-          logger.error('HTTPS server shutdown error:', err);
-          return;
-        }
-        logger.info('HTTPS server stopped');
-        this.httpServer = null;
-      });
+      closeOperations.push(
+        new Promise((resolve) => {
+          this.httpServer.close((err) => {
+            if (err) {
+              logger.error('HTTPS server shutdown error:', err);
+            } else {
+              logger.info('HTTPS server stopped');
+            }
+            this.httpServer = null;
+            resolve();
+          });
+        })
+      );
     }
+
+    await Promise.all(closeOperations);
   }
 }

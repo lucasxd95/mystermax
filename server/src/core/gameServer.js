@@ -364,7 +364,7 @@ export class GameServer {
     }
 
     this.tickLoop.stop();
-    this.network.stop();
+    await this.network.stop();
     await this.mongo.disconnect();
     await this.redis.disconnect();
 
