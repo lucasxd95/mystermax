@@ -234,9 +234,8 @@ export class NetworkServer {
               logger.error('HTTPS server shutdown error:', err);
               reject(err);
               return;
-            } else {
-              logger.info('HTTPS server stopped');
             }
+            logger.info('HTTPS server stopped');
             this.httpServer = null;
             resolve();
           });
