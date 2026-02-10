@@ -40,7 +40,7 @@ export class NetworkServer {
       });
       this.wss = new WebSocketServer({ server: this.httpServer });
       this.httpServer.on('error', (err) => {
-        logger.error('HTTPS server error:', err);
+        logger.error('HTTPS server error (check SSL configuration):', err);
       });
       this.httpServer.listen(port);
     } else {
@@ -199,12 +199,13 @@ export class NetworkServer {
       logger.info('WebSocket server stopped');
     }
     if (this.httpServer) {
-      this.httpServer.close((err) => {
+      const httpServer = this.httpServer;
+      httpServer.close((err) => {
         if (err) {
           logger.error('HTTPS server shutdown error:', err);
         }
+        this.httpServer = null;
       });
-      this.httpServer = null;
     }
   }
 }

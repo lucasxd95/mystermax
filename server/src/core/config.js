@@ -10,8 +10,8 @@ const config = {
     env: process.env.NODE_ENV || 'development',
     ssl: {
       enabled: sslEnabled,
-      certPath: process.env.SSL_CERT_PATH || '/etc/letsencrypt/live/app.dragonspheres.com.br/fullchain.pem',
-      keyPath: process.env.SSL_KEY_PATH || '/etc/letsencrypt/live/app.dragonspheres.com.br/privkey.pem',
+      certPath: process.env.SSL_CERT_PATH || '',
+      keyPath: process.env.SSL_KEY_PATH || '',
     },
   },
   mongodb: {
