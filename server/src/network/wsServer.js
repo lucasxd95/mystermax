@@ -39,7 +39,10 @@ export class NetworkServer {
         key: fs.readFileSync(keyPath),
       });
       this.httpServer.on('error', (err) => {
-        logger.error('HTTPS server error (check SSL configuration):', err);
+        logger.error(
+          'HTTPS server error (verify SSL_CERT_PATH/SSL_KEY_PATH files and permissions):',
+          err
+        );
       });
       this.wss = new WebSocketServer({ server: this.httpServer });
       this.httpServer.listen(port);
@@ -199,13 +202,12 @@ export class NetworkServer {
       logger.info('WebSocket server stopped');
     }
     if (this.httpServer) {
-      const httpServer = this.httpServer;
-      this.httpServer = null;
-      httpServer.close((err) => {
+      this.httpServer.close((err) => {
         if (err) {
           logger.error('HTTPS server shutdown error:', err);
         }
       });
+      this.httpServer = null;
     }
   }
 }
