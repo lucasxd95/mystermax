@@ -55,7 +55,6 @@ export class NetworkServer {
       this.httpServer.listen(port);
     } else {
       this.wss = new WebSocketServer({ port });
-      this.httpServer = null;
     }
 
     this.wss.on('connection', (ws) => {
