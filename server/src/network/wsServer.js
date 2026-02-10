@@ -214,8 +214,8 @@ export class NetworkServer {
           return;
         }
         logger.info('HTTPS server stopped');
+        this.httpServer = null;
       });
-      this.httpServer = null;
     }
   }
 }
