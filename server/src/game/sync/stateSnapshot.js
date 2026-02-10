@@ -30,11 +30,20 @@ export class StateSnapshot {
   /**
    * Send player list snapshot to all connected players.
    * Uses the batch format {type:"pl", data:[...]}
+   *
+   * The client requires a plr_tpl (player template) in player_dict
+   * before it can render a player from a "p" packet. We must send
+   * templates for nearby players so the client has them available.
    */
   sendPlayerSnapshots() {
     for (const player of this.gameServer.players.values()) {
       const nearbyPlayers = this.getNearbyPlayers(player);
       if (nearbyPlayers.length === 0) continue;
+
+      // Send plr_tpl for each nearby player so the client can render them
+      for (const p of nearbyPlayers) {
+        this.gameServer.network.sendToPlayer(player.id, p.toTemplatePacket());
+      }
 
       const batchData = nearbyPlayers.map(p => JSON.stringify(p.toSpawnPacket()));
 

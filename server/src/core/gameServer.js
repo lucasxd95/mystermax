@@ -153,6 +153,12 @@ export class GameServer {
     // Send player template
     this.network.sendToPlayer(playerId, player.toTemplatePacket());
 
+    // Send templates for nearby players so the client can render them
+    const nearbyPlayers = this.stateSnapshot.getNearbyPlayers(player);
+    for (const other of nearbyPlayers) {
+      this.network.sendToPlayer(playerId, other.toTemplatePacket());
+    }
+
     // Send initial spawn packet
     this.network.sendToPlayer(playerId, player.toSpawnPacket());
 
@@ -186,7 +192,12 @@ export class GameServer {
     }
     this.network.sendToPlayer(playerId, acceptedPacket);
 
-    // Broadcast new player to others
+    // Broadcast new player template and update to nearby players
+    this.network.broadcastToNearby(
+      player.x, player.y, player.mapId,
+      player.toTemplatePacket(),
+      player.id
+    );
     this.broadcastPlayerUpdate(player);
 
     // Update Redis
