@@ -30,8 +30,15 @@ export class NetworkServer {
       if (!certPath || !keyPath) {
         throw new Error('SSL is enabled but SSL_CERT_PATH or SSL_KEY_PATH is missing.');
       }
-      if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
-        throw new Error(`SSL certificate files not found at ${certPath} or ${keyPath}.`);
+      const missingPaths = [];
+      if (!fs.existsSync(certPath)) {
+        missingPaths.push(`SSL_CERT_PATH (${certPath})`);
+      }
+      if (!fs.existsSync(keyPath)) {
+        missingPaths.push(`SSL_KEY_PATH (${keyPath})`);
+      }
+      if (missingPaths.length > 0) {
+        throw new Error(`SSL certificate files not found: ${missingPaths.join(', ')}.`);
       }
 
       this.httpServer = https.createServer({
@@ -205,7 +212,9 @@ export class NetworkServer {
       this.httpServer.close((err) => {
         if (err) {
           logger.error('HTTPS server shutdown error:', err);
+          return;
         }
+        logger.info('HTTPS server stopped');
       });
       this.httpServer = null;
     }
