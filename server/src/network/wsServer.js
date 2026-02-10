@@ -28,7 +28,7 @@ export class NetworkServer {
     if (sslConfig?.enabled) {
       const { certPath, keyPath } = sslConfig;
       if (!certPath || !keyPath) {
-        throw new Error('SSL is enabled but certificate paths are missing.');
+        throw new Error('SSL is enabled but SSL_CERT_PATH or SSL_KEY_PATH is missing.');
       }
       if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
         throw new Error(`SSL certificate files not found at ${certPath} or ${keyPath}.`);
@@ -199,11 +199,12 @@ export class NetworkServer {
       logger.info('WebSocket server stopped');
     }
     if (this.httpServer) {
-      this.httpServer.close((err) => {
+      const httpServer = this.httpServer;
+      this.httpServer = null;
+      httpServer.close((err) => {
         if (err) {
           logger.error('HTTPS server shutdown error:', err);
         }
-        this.httpServer = null;
       });
     }
   }
