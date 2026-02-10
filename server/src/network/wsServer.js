@@ -41,10 +41,19 @@ export class NetworkServer {
         throw new Error(`SSL certificate files not found: ${missingPaths.join(', ')}.`);
       }
 
-      this.httpServer = https.createServer({
-        cert: fs.readFileSync(certPath),
-        key: fs.readFileSync(keyPath),
-      });
+      let cert;
+      let key;
+      try {
+        cert = fs.readFileSync(certPath);
+        key = fs.readFileSync(keyPath);
+      } catch (err) {
+        throw new Error(`Failed to read SSL certificate files: ${err.message}`);
+      }
+      try {
+        this.httpServer = https.createServer({ cert, key });
+      } catch (err) {
+        throw new Error(`Failed to create HTTPS server: ${err.message}`);
+      }
       this.httpServer.on('error', (err) => {
         logger.error(
           'HTTPS server error (verify SSL_CERT_PATH/SSL_KEY_PATH files and permissions):',
@@ -219,10 +228,12 @@ export class NetworkServer {
 
     if (this.httpServer) {
       closeOperations.push(
-        new Promise((resolve) => {
+        new Promise((resolve, reject) => {
           this.httpServer.close((err) => {
             if (err) {
               logger.error('HTTPS server shutdown error:', err);
+              reject(err);
+              return;
             } else {
               logger.info('HTTPS server stopped');
             }
@@ -233,6 +244,10 @@ export class NetworkServer {
       );
     }
 
-    await Promise.all(closeOperations);
+    try {
+      await Promise.all(closeOperations);
+    } catch (err) {
+      logger.error('Network shutdown encountered errors:', err);
+    }
   }
 }
