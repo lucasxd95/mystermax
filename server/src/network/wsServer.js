@@ -25,7 +25,7 @@ export class NetworkServer {
 
   start(port) {
     const sslConfig = config.server.ssl;
-    if (sslConfig?.enabled) {
+    if (sslConfig.enabled) {
       const { certPath, keyPath } = sslConfig;
       if (!certPath || !keyPath) {
         throw new Error('SSL is enabled but SSL_CERT_PATH or SSL_KEY_PATH is missing.');
@@ -65,7 +65,7 @@ export class NetworkServer {
       logger.error('WebSocket server error:', err);
     });
 
-    const protocolLabel = sslConfig?.enabled ? 'Secure WebSocket' : 'WebSocket';
+    const protocolLabel = sslConfig.enabled ? 'Secure WebSocket' : 'WebSocket';
     logger.info(`${protocolLabel} server listening on port ${port}`);
   }
 
