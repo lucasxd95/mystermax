@@ -231,10 +231,10 @@ export class GameServer {
 
     const tiles = [];
 
-    for (let dx = -MAP_VIEWPORT_HALF_WIDTH; dx < MAP_VIEWPORT_HALF_WIDTH; dx++) {
-      for (let dy = -MAP_VIEWPORT_HALF_HEIGHT; dy < MAP_VIEWPORT_HALF_HEIGHT; dy++) {
-        const x = player.x + dx;
-        const y = player.y + dy;
+    for (let offsetX = -MAP_VIEWPORT_HALF_WIDTH; offsetX < MAP_VIEWPORT_HALF_WIDTH; offsetX++) {
+      for (let offsetY = -MAP_VIEWPORT_HALF_HEIGHT; offsetY < MAP_VIEWPORT_HALF_HEIGHT; offsetY++) {
+        const x = player.x + offsetX;
+        const y = player.y + offsetY;
         const tileId = map.getTile(x, y);
         const key = getKey(x, y);
         const objects = map.objects.get(key);

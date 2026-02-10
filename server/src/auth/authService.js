@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 
+const SCRYPT_OPTIONS = { N: 16384, r: 8, p: 1 };
+
 /**
  * Authentication handler.
  * Manages login, guest accounts, and session validation.
@@ -125,7 +127,7 @@ export class AuthService {
   createPasswordHash(password) {
     // 16-byte salt and 64-byte derived key align with common scrypt recommendations.
     const salt = crypto.randomBytes(16);
-    const hash = crypto.scryptSync(password, salt, 64);
+    const hash = crypto.scryptSync(password, salt, 64, SCRYPT_OPTIONS);
     return `${salt.toString('hex')}:${hash.toString('hex')}`;
   }
 
@@ -138,9 +140,15 @@ export class AuthService {
     try {
       const salt = Buffer.from(saltHex, 'hex');
       const storedBuffer = Buffer.from(hashHex, 'hex');
-      const verifyBuffer = crypto.scryptSync(password, salt, storedBuffer.length);
+      const verifyBuffer = crypto.scryptSync(
+        password,
+        salt,
+        storedBuffer.length,
+        SCRYPT_OPTIONS
+      );
       return crypto.timingSafeEqual(storedBuffer, verifyBuffer);
-    } catch {
+    } catch (err) {
+      logger.warn(`Password verification failed: ${err.message}`);
       return false;
     }
   }
