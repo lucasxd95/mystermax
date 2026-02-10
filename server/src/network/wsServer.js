@@ -38,10 +38,10 @@ export class NetworkServer {
         cert: fs.readFileSync(certPath),
         key: fs.readFileSync(keyPath),
       });
-      this.wss = new WebSocketServer({ server: this.httpServer });
       this.httpServer.on('error', (err) => {
         logger.error('HTTPS server error (check SSL configuration):', err);
       });
+      this.wss = new WebSocketServer({ server: this.httpServer });
       this.httpServer.listen(port);
     } else {
       this.wss = new WebSocketServer({ port });

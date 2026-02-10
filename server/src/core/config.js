@@ -10,8 +10,8 @@ const config = {
     env: process.env.NODE_ENV || 'development',
     ssl: {
       enabled: sslEnabled,
-      certPath: process.env.SSL_CERT_PATH || '',
-      keyPath: process.env.SSL_KEY_PATH || '',
+      certPath: process.env.SSL_CERT_PATH || null,
+      keyPath: process.env.SSL_KEY_PATH || null,
     },
   },
   mongodb: {
