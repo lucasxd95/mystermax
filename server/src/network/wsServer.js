@@ -199,8 +199,7 @@ export class NetworkServer {
       logger.info('WebSocket server stopped');
     }
     if (this.httpServer) {
-      const httpServer = this.httpServer;
-      httpServer.close((err) => {
+      this.httpServer.close((err) => {
         if (err) {
           logger.error('HTTPS server shutdown error:', err);
         }
