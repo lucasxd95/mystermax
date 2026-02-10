@@ -1,0 +1,22 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/core/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/core/server.js",
+    "dev": "node --watch src/core/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.2.4",
+    "ioredis": "^5.9.2",
+    "mongodb": "^7.1.0",
+    "uuid": "^13.0.0",
+    "winston": "^3.19.0",
+    "ws": "^8.19.0"
+  }
+}
